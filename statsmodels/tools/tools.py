@@ -6,7 +6,7 @@ import numpy as np
 import numpy.lib.recfunctions as nprf
 import numpy.linalg as L
 from scipy.linalg import svdvals
-from statsmodels.datasets import webuse
+#from statsmodels.datasets import webuse
 from statsmodels.tools.data import _is_using_pandas
 from statsmodels.compat.numpy import np_matrix_rank
 from pandas import DataFrame
@@ -557,9 +557,9 @@ class Bunch(dict):
         dict.__init__(self, kw)
         self.__dict__ = self
 
-webuse = np.deprecate(webuse,
-                      old_name='statsmodels.tools.tools.webuse',
-                      new_name='statsmodels.datasets.webuse',
-                      message='webuse will be removed from the tools '
-                              'namespace in the 0.7.0 release. Please use the'
-                              ' new import.')
+##webuse = np.deprecate(webuse,
+##                      old_name='statsmodels.tools.tools.webuse',
+##                      new_name='statsmodels.datasets.webuse',
+##                      message='webuse will be removed from the tools '
+##                              'namespace in the 0.7.0 release. Please use the'
+##                              ' new import.')
