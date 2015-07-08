@@ -24,14 +24,14 @@ class SysSEM(SysModel):
     instruments : array, optional
         Array of additional instruments.
     dkf :
-    sigma : 
+    sigma :
 
     Attributes
     ----------
     exog_full : ndarray
         The larger set of instruments is used for estimation, including
         all of the exogenous variables in the system and the others instruments
-        provided in 'instruments' parameters. 
+        provided in 'instruments' parameters.
     """
 
     def __init__(self, sys, instruments=None, sigma=None, dfk=None):
@@ -51,7 +51,7 @@ class SysSEM(SysModel):
             self.sigma = sigma
         else:
             raise ValueError("sigma is not correctly specified")
-        
+
         ## Handle restrictions: TODO
 
         ## Handle instruments design
@@ -66,17 +66,17 @@ class SysSEM(SysModel):
         exog_full = np.column_stack(exogs)
         if not(self.instruments is None):
             exog_full = np.hstack((self.instruments, exog_full))
-            # Note : the constant is not in the first column. 
+            # Note : the constant is not in the first column.
         # Delete reoccuring cols
         self.exog_full = z = unique_cols(exog_full)
 
         ## Handle first-step
         ztzinv = np.linalg.inv(np.dot(z.T, z))
-        #TODO: Josef: "some streamlining in the linear algebra is necessary. 
-        #For example the projection matrix Pz, as you use it in the 1st stage 
-        #regression is (nobs, nobs), which is large and inefficient for 
+        #TODO: Josef: "some streamlining in the linear algebra is necessary.
+        #For example the projection matrix Pz, as you use it in the 1st stage
+        #regression is (nobs, nobs), which is large and inefficient for
         #larger samples."
-        Pz = np.dot(np.dot(z, ztzinv), z.T) 
+        Pz = np.dot(np.dot(z, ztzinv), z.T)
         xhats = [np.dot(Pz, eq['exog']) for eq in self.sys]
         self.sp_xhat = sp_block_diag(xhats)
         # Identification conditions
@@ -92,7 +92,7 @@ class SysSEM(SysModel):
         self.wxhat = self.whiten(self.sp_xhat)
         self.wendog = self.whiten(self.endog.T.reshape(-1,1))
         self.pinv_wxhat = np.linalg.pinv(self.wxhat)
-    
+
     def _estimate(self):
         params = np.squeeze(np.dot(self.pinv_wxhat, self.wendog))
         normalized_cov_params = np.dot(self.pinv_wxhat, self.pinv_wxhat.T)
@@ -101,13 +101,13 @@ class SysSEM(SysModel):
     def fit(self, iterative=False, tol=1e-5, maxiter=100):
         """
         Full fit of the model.
-        
+
         Parameters
         ----------
         iterative : bool
             If True the estimation procedure is iterated.
         tol : float
-            Convergence threshold which is compared with difference of 
+            Convergence threshold which is compared with difference of
             parameters between iterations.
         maxiter : int
             Maximum number of iteration.
@@ -135,7 +135,7 @@ class SysSEM(SysModel):
             res = self._estimate()
             betas = [res[0], betas[0]]
             iterations += 1
-       
+
         self.iterations = iterations
         beta = betas[0]
         normalized_cov_params = self._estimate()[1]
@@ -159,7 +159,7 @@ class Sys2SLS(SysSEM):
     def __init__(self, sys, instruments=None, dfk=None):
         super(Sys2SLS, self).__init__(sys, instruments=instruments,
                 sigma=None, dfk=dfk)
-    
+
     def fit(self):
         res_fit = super(Sys2SLS, self).fit()
         params = res_fit.params

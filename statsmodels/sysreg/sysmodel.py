@@ -1,10 +1,10 @@
 import numpy as np
-import statsmodels.tools.tools as tools 
+import statsmodels.tools.tools as tools
 import scipy.sparse as sparse
 from scipy.linalg import block_diag
 from statsmodels.base.model import LikelihoodModel, LikelihoodModelResults
 from statsmodels.regression.linear_model import OLS
-from statsmodels.compat.sparse import block_diag as sp_block_diag
+from statsmodels.compat.scipy_sparse import block_diag as sp_block_diag
 #from cStringIO import StringIO
 from statsmodels.compat import StringIO
 from statsmodels.iolib import SimpleTable
@@ -28,7 +28,7 @@ class SysModel(LikelihoodModel):
     ----------
     sys : list of dict
         [eq_1,...,eq_neqs]
-    
+
     eq_i['endog'] : ndarray, (nobs, 1) or (nobs,)
     eq_i['exog'] : ndarray, (nobs, K_i)
 
@@ -63,8 +63,8 @@ class SysModel(LikelihoodModel):
             all(['exog' in eq for eq in sys])
         if not isregression:
             raise ValueError('each equation of a system must have endog and \
-                exog keys') 
-        
+                exog keys')
+
         allnobs = [eq['endog'].shape[0] for eq in sys] + \
             [eq['exog'].shape[0] for eq in sys]
         isidnobs = len(set(allnobs)) == 1
@@ -75,7 +75,7 @@ class SysModel(LikelihoodModel):
         # Others checks
         if not dfk in (None, 'dfk1', 'dfk2'):
             raise ValueError('dfk is not correctly specified')
-        
+
         self.sys = sys
         self.neqs = len(sys)
         self.nobs = sys[0]['endog'].shape[0]
@@ -90,12 +90,12 @@ class SysModel(LikelihoodModel):
             df_resid.append(self.nobs - rank)
         self.df_model, self.df_resid = np.asarray(df_model), np.asarray(df_resid)
         #TODO: check for singular exog here
- 
+
         self.endog = np.column_stack((np.asarray(eq['endog']) for eq in sys))
         #self.exog = np.column_stack((np.asarray(eq['exog']) for eq in sys))
         #self.exog : ndarray, (nobs, sum(K_i))
         #RHS variables stacked so that each column is one regressor.
-        self.sp_exog = sp_block_diag([np.asarray(eq['exog']) 
+        self.sp_exog = sp_block_diag([np.asarray(eq['exog'])
             for eq in sys])
 
         # Compute DoF corrections
@@ -105,10 +105,10 @@ class SysModel(LikelihoodModel):
             for j in range(self.neqs):
                 div_dfk1[i,j] = np.sqrt( (self.nobs - self.df_model[i] - 1) *
                                          (self.nobs - self.df_model[j] - 1) )
-                div_dfk2[i,j] = self.nobs - np.max((self.df_model[i] + 1, 
+                div_dfk2[i,j] = self.nobs - np.max((self.df_model[i] + 1,
                                                     self.df_model[j] + 1))
 
- 
+
         self._div_dfk1 = div_dfk1
         self._div_dfk2 = div_dfk2
 
@@ -123,7 +123,7 @@ class SysModel(LikelihoodModel):
             sp_exog = self.sp_exog
         else:
             sp_exog = sp_block_diag(exog)
-        
+
         return sp_exog * params
 
     def _compute_sigma(self, resids):
@@ -154,7 +154,7 @@ class SysModel(LikelihoodModel):
             Data to be whitened
         '''
         if sparse.issparse(X):
-            return np.asarray((sparse.kron(self.cholsigmainv, 
+            return np.asarray((sparse.kron(self.cholsigmainv,
                 sparse.eye(self.nobs, self.nobs))*X).todense())
         else:
             return np.dot(np.kron(self.cholsigmainv,np.eye(self.nobs)), X)
@@ -240,7 +240,7 @@ class SysGLS(SysModel):
         self.wexog = self.whiten(self.sp_exog)
         self.wendog = self.whiten(self.endog.T.reshape(-1,1))
         self.pinv_wexog = np.linalg.pinv(self.wexog)
-        
+
         if self.isrestricted:
             rwendog = np.zeros((self.k_exog_all + self.nconstraints,))
             rwendog[:self.k_exog_all] = np.squeeze(np.dot(self.wexog.T,self.wendog))
@@ -249,7 +249,7 @@ class SysGLS(SysModel):
 
             rwexog = np.zeros((self.k_exog_all + self.nconstraints,
                 self.k_exog_all + self.nconstraints))
-            rwexog[:self.k_exog_all, :self.k_exog_all] = np.dot(self.wexog.T, 
+            rwexog[:self.k_exog_all, :self.k_exog_all] = np.dot(self.wexog.T,
                     self.wexog)
             rwexog[:self.k_exog_all, self.k_exog_all:] = self.restrict_matrix.T
             rwexog[self.k_exog_all:, :self.k_exog_all] = self.restrict_matrix
@@ -259,7 +259,7 @@ class SysGLS(SysModel):
 
             pinv_rwexog = np.linalg.pinv(rwexog)
             self.pinv_rwexog = pinv_rwexog
-    
+
     def _estimate(self):
         '''
         Notes
@@ -275,19 +275,19 @@ class SysGLS(SysModel):
         else:
             params = np.squeeze(np.dot(self.pinv_wexog, self.wendog))
             normalized_cov_params = np.dot(self.pinv_wexog, self.pinv_wexog.T)
-        
+
         return (params, normalized_cov_params)
 
     def fit(self, iterative=False, tol=1e-5, maxiter=100):
         """
         Full fit of the model.
-        
+
         Parameters
         ----------
         iterative : bool
             If True the estimation procedure is iterated.
         tol : float
-            Convergence threshold which is compared with difference of 
+            Convergence threshold which is compared with difference of
             parameters between iterations.
         maxiter : int
             Maximum number of iteration.
@@ -299,10 +299,10 @@ class SysGLS(SysModel):
         res = self._estimate()
         if not iterative:
             return SysResults(self, res[0], res[1])
-        
+
         betas = [res[0], np.inf]
         iterations = 1
-        
+
         while np.any(np.abs(betas[0] - betas[1]) > tol) \
                 and iterations < maxiter:
             # Update sigma
@@ -315,12 +315,12 @@ class SysGLS(SysModel):
             res = self._estimate()
             betas = [res[0], betas[0]]
             iterations += 1
-       
+
         self.iterations = iterations
         beta = betas[0]
         normalized_cov_params = self._estimate()[1]
         return SysResults(self, beta, normalized_cov_params)
- 
+
 class SysWLS(SysGLS):
     '''
     Parameters
@@ -335,7 +335,7 @@ class SysWLS(SysGLS):
                 restrict_matrix, restrict_vect=restrict_vect)
 
         self.dfk = dfk
-        
+
         if weights is None:
             # Compute sigma by OLS equation by equation
             resids = []
@@ -367,7 +367,7 @@ class SysOLS(SysWLS):
 
 class SysSUR(SysGLS):
     def __init__(self, sys, dfk=None, restrict_matrix=None, restrict_vect=None):
-        super(SysSUR, self).__init__(sys, sigma=None, 
+        super(SysSUR, self).__init__(sys, sigma=None,
                 restrict_matrix=restrict_matrix, restrict_vect=restrict_vect)
 
         self.dfk = dfk
@@ -382,7 +382,7 @@ class SysSUR(SysGLS):
 
         self.sigma = sigma
         self.initialize()
- 
+
 class SysSURI(SysOLS):
     '''
     SUR estimation with identical regressors in each equation.
@@ -415,7 +415,7 @@ class SysResults(LikelihoodModelResults):
         Estimated residual covariance matrix with final residuals.
     '''
     def __init__(self, model, params, normalized_cov_params=None, scale=1.):
-        super(SysResults, self).__init__(model, params, normalized_cov_params, 
+        super(SysResults, self).__init__(model, params, normalized_cov_params,
                 scale)
         self.cov_resids_est = model.sigma
         # Compute sigma with final residuals
@@ -426,7 +426,7 @@ class SysResults(LikelihoodModelResults):
         self.nobs = model.nobs
         self.df_resid = model.df_resid
         self.df_model = model.df_model
-        self.ssr = np.array([sum(self.resids[:, eq] ** 2) 
+        self.ssr = np.array([sum(self.resids[:, eq] ** 2)
             for eq in range(self.model.neqs)])
         self.mse = self.ssr / self.df_resid
         self.rmse = np.sqrt(self.mse)
@@ -443,7 +443,7 @@ class SysResults(LikelihoodModelResults):
     def summary(self, yname=None, xname=None, title=None):
         #TODO: handle variable names in SysModel
         return SysSummary(self, yname=yname, xname=xname, title=title)
-    
+
     def _compute_cov_resids(self, resids):
         '''
         Compute covariance matrix of residuals corrected by DoF.
@@ -532,7 +532,7 @@ class SysSummary(object):
         part1data = [[result.model.__class__.__name__[3:]],
                      [time.strftime("%a, %d, %b, %Y", t)],
                      [time.strftime("%H:%M:%S", t)],
-                     [str(result.model.nobs)], 
+                     [str(result.model.nobs)],
                      [str(result.model.neqs)]]
         part1header = None
         part1stubs = ('Model:','Date:','Time:', '#observations:', '#equations:')
@@ -541,7 +541,7 @@ class SysSummary(object):
         buf = StringIO()
         #print >> buf, str(part1)
         buf.write('\n')
-        
+
         return buf.getvalue()
 
     def _stats_table(self):
@@ -553,7 +553,7 @@ class SysSummary(object):
         header = ('DoF', 'SSR', 'MSE', 'RMSE', 'R^2', 'Adj. R^2')
 
         buf = StringIO()
-        table = SimpleTable(data, header, stubs=self.yname, 
+        table = SimpleTable(data, header, stubs=self.yname,
                 txt_fmt=self.part2_fmt)
         print >> buf, str(table)
 
@@ -563,7 +563,7 @@ class SysSummary(object):
         result = self.result
         neqs = result.model.neqs
 
-        data = np.column_stack((result.params, result.bse, 
+        data = np.column_stack((result.params, result.bse,
                                 result.tvalues, result.pvalues,
                                 result.conf_int()))
         header = ('coefficient','std. error','t-stat','p-value', 'conf int inf',
@@ -599,7 +599,7 @@ class SysSummary(object):
 # Testing/Debugging
 if __name__ == '__main__':
     from statsmodels.tools import add_constant
-    
+
     nobs = 10
     (y1,y2) = (np.random.rand(nobs), np.random.rand(nobs))
     (x1,x2) = (np.random.rand(nobs,3), np.random.rand(nobs,4))
@@ -610,13 +610,13 @@ if __name__ == '__main__':
     eq1['exog'] = x1
     eq2['endog'] = y2
     eq2['exog'] = x2
-    
+
     sys = [eq1, eq2]
     mod = SysSUR(sys)
     res = mod.fit()
 
     R = np.asarray([[0,1,2,0,0,1,3,0,0],[0,1,0,3,1,2,0,1,0]])
-    q = np.asarray([0,1]) 
+    q = np.asarray([0,1])
     modr = SysSUR(sys, restrict_matrix=R, restrict_vect=q)
     resr = modr.fit()
 
